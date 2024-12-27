@@ -161,8 +161,8 @@ class EnhancedListCommand(gdb.Command):
                 print(f"{prefix}{i:4}: {lines[i - 1].rstrip()}{RESET}")
 
         except Exception as e:
-            print("Error: No current source file.")
-            #print(f"Error: {e}")
+            #print("Error: No current source file.")
+            print(f"Error: {e}")
 
 # Register the new list command
 EnhancedListCommand()
