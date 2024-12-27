@@ -42,6 +42,12 @@ class EnhancedListCommand(gdb.Command):
         
         return breakpoints, breakpoints_number
 
+    def getfilename(self):
+        cmd = "i source"
+        output = gdb.execute(cmd, to_string = True)
+        filename = output.splitlines()[0].rstrip().split(' ')[-1]
+        return filename
+
 
     def getscope(self, argument):
         cmd = "list " + argument
@@ -78,18 +84,23 @@ class EnhancedListCommand(gdb.Command):
             RESET = "\033[0m"
 
             # Determine the current frame
+            
             frame = gdb.selected_frame()
-            if not frame:
-                print("No frame selected.")
-                return
+            if frame:
 
-            sal = frame.find_sal()
-            if not sal or not sal.symtab:
-                print("No source information available.")
-                return
+                #print("No frame selected.")
+                #return
 
-            filename = sal.symtab.filename
-            next_line = sal.line
+                sal = frame.find_sal()
+                if sal and sal.symtab:
+                    #print("No source information available.")
+                    #return
+
+                    filename = sal.symtab.filename
+                    next_line = sal.line
+                else:
+                    filename = self.getfilename()
+                    next_line = None
 
             # Read the source file
             with open(filename, "r") as source_file:
@@ -122,18 +133,16 @@ class EnhancedListCommand(gdb.Command):
                         prefix = "○"  # Mark breakpoint lines
 
                     prefix= f"{RED}{prefix}"
-                    if i == next_line:
+                    if next_line is not None and i == next_line:
                         prefix += f"{GREEN} —▸{RED}"  # Mark next line to execute
                         #line_color = GREEN
                     else:
                         prefix += "   "  # Mark next line to execute
                     
-                    
-
                     break_point_prefix = self.compose_breakpoint_prefix(breakpoints_number[i], length_breakpoints)
                     prefix = f"{RESET}{break_point_prefix}{prefix}"
 
-                elif i == next_line:
+                elif next_line is not None and i == next_line:
                     prefix = f"{GREEN}{leading_spaces}  —▸"  # Mark next line to execute
                     #line_color = GREEN
                 else:
