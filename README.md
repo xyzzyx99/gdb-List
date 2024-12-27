@@ -1,6 +1,6 @@
 # gdb-List
 
-The small program is an enhancement to the gdb list command. It follows the same syuntax as lsit, but also indicate the breakpoints and the next statement to be executed.
+The small program is an enhancement to the gdb list command. It follows the same syntax as lsit, but also indicates the breakpoints and the next statement to be executed.
 Python needs to be included when compiling gdb.
 
 To use it:
