@@ -54,10 +54,16 @@ class EnhancedListCommand(gdb.Command):
         try:
             cmd = "i source"
             output = gdb.execute(cmd, to_string = True)
-            filename = output.splitlines()[0].rstrip().split(' ')[-1]
-            return filename
+            line = output.splitlines()[0].rstrip()
+
+            if line != "No current source file.":
+                filename = output.splitlines()[0].rstrip().split(' ')[-1]
+                return filename
+            else:
+                raise RuntimeError("No current source file.")
         except Exception as e:
-            print(f"Error: {e}")
+            #print(f"Error: {e}")
+            return ""
 
 
     def getscope(self, argument):
