@@ -29,7 +29,10 @@ class EnhancedListCommand(gdb.Command):
     def get_breakpoints(self, filename):
         """
         The breakpoints returned from gdb.breakpoints() are not correct
+        If breakpoints are set multiple times at the same line, if anyone of them is active, then the breakpoint is active.
+        If the breakpoint is actibe or inactive, the corresponding breakpoint sequence number always shows the one that set the latest.
         """
+
         cmd = "i b"
         output = gdb.execute(cmd, to_string = True)
         lines = output.splitlines()
@@ -44,8 +47,21 @@ class EnhancedListCommand(gdb.Command):
                 breakpoint_number=match.group(1)
                 active = match.group(2)
                 line_number = match.group(3)
-                breakpoints[int(line_number)] = active
-                breakpoints_number[int(line_number)] = breakpoint_number
+
+                if int(line_number) in breakpoints:
+                    if breakpoints[int(line_number)] == 'n':
+                        if active == 'y':
+                            breakpoints[int(line_number)] = active
+                else:
+                    breakpoints[int(line_number)] = active
+
+                if breakpoints[int(line_number)] == 'y':
+                    if active == 'y':
+                        breakpoints_number[int(line_number)] = breakpoint_number
+                else:
+                    breakpoints_number[int(line_number)] = breakpoint_number
+
+#                breakpoints_number[int(line_number)] = breakpoint_number
         
         return breakpoints, breakpoints_number
 
