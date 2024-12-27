@@ -134,7 +134,7 @@ class EnhancedListCommand(gdb.Command):
                     prefix = f"{RESET}{break_point_prefix}{prefix}"
 
                 elif i == next_line:
-                    prefix = f"{GREEN}  —▸"  # Mark next line to execute
+                    prefix = f"{GREEN}{leading_spaces}  —▸"  # Mark next line to execute
                     #line_color = GREEN
                 else:
                     prefix = f"{RESET}{leading_spaces}    "
