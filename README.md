@@ -6,7 +6,9 @@ Python needs to be included when compiling gdb.
 To use it:
 
 1) Copy the program to ~/.gdbscripts
-2) Add the line to ~/.gdbinit:
+   
+3) Add the line to ~/.gdbinit:
+
    source ~/.gdbscripts/List.py
 
 Usage:
