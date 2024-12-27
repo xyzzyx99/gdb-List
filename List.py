@@ -1,13 +1,13 @@
 import gdb
 
-class EnhancedListCommand1(gdb.Command):
+class EnhancedListCommand(gdb.Command):
     """
     Replaces the original `list` command to show source code with
     highlighted breakpoints (red) and the next line to be executed (green).
     """
     def __init__(self):
-        super(EnhancedListCommand1, self).__init__("List1", gdb.COMMAND_FILES)
-        gdb.execute("alias L1 = List")
+        super(EnhancedListCommand, self).__init__("List", gdb.COMMAND_FILES)
+        gdb.execute("alias L = List")
 
 
     def max_digits_in_dict(self, numbers_dict):
@@ -84,24 +84,26 @@ class EnhancedListCommand1(gdb.Command):
         RESET = "\033[0m"
 
         # Determine the current frame
-        
-        frame = None #= gdb.selected_frame()
-        if frame:
+       
+        try:
+            frame = gdb.selected_frame()
+            if frame:
 
-            #print("No frame selected.")
-            #return
-
-            sal = frame.find_sal()
-            if sal and sal.symtab:
-                #print("No source information available.")
+                #print("No frame selected.")
                 #return
 
-                filename = sal.symtab.filename
-                next_line = sal.line
-            else:
-                filename = self.getfilename()
-                next_line = None
-        else:
+                sal = frame.find_sal()
+                if sal and sal.symtab:
+                    #print("No source information available.")
+                    #return
+
+                    filename = sal.symtab.filename
+                    next_line = sal.line
+                #else:
+                #    filename = self.getfilename()
+                #    next_line = None
+        except:
+        #else:
             filename = self.getfilename()
             next_line = None
 
@@ -157,7 +159,8 @@ class EnhancedListCommand1(gdb.Command):
                 print(f"{prefix}{i:4}: {lines[i - 1].rstrip()}{RESET}")
 
         except Exception as e:
-            print(f"Error: {e}")
+            print("Error: No current source file.")
+            #print(f"Error: {e}")
 
 # Register the new list command
-EnhancedListCommand1()
+EnhancedListCommand()
