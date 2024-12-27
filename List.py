@@ -80,6 +80,7 @@ class EnhancedListCommand(gdb.Command):
         #try:
             # ANSI color codes
         RED = "\033[31m"
+        DARKRED= "\033[35m"
         GREEN = "\033[32m"
         RESET = "\033[0m"
 
@@ -130,17 +131,18 @@ class EnhancedListCommand(gdb.Command):
             for i in range(start_line, end_line + 1):
 
                 if i in breakpoints:
-                    #break
-                    line_color = RED
+                   # line_color = RED
 
                     if breakpoints[i] == 'y':
+                        line_color = RED
                         prefix = "●"  # Mark breakpoint lines
                     else:
+                        line_color = DARKRED
                         prefix = "○"  # Mark breakpoint lines
 
-                    prefix= f"{RED}{prefix}"
+                    prefix= f"{RED}{prefix}{line_color}"
                     if next_line is not None and i == next_line:
-                        prefix += f"{GREEN} —▸{RED}"  # Mark next line to execute
+                        prefix += f"{GREEN} —▸{line_color}"  # Mark next line to execute
                         #line_color = GREEN
                     else:
                         prefix += "   "  # Mark next line to execute
