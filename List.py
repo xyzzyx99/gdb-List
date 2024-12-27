@@ -10,6 +10,28 @@ class EnhancedListCommand(gdb.Command):
         gdb.execute("alias L = List")
 
     #def getscope(self, arg, from_tty):
+
+    def get_breakpoints(self, filename):
+        """
+        The breakpoints returned from gdb.breakpoints() are not correct
+        """
+        cmd = "i b"
+        output = gdb.execute(cmd, to_string = True)
+        lines = output.splitlines()
+        
+        breakpoints = {}
+
+        pattern = rf"^\s*\d+.*\s+keep\s+([yn])\s+.*{filename}:(\d+)\s*$"
+        for line in lines:
+            match = re.match(pattern, line)
+            if match:
+                active = match.group(1)
+                line_number = match.group(2)
+                breakpoints[int(line_number)] = active
+        #print(breakpoints)
+        return breakpoints
+
+
     def getscope(self, argument):
         cmd = "list " + argument
         output = gdb.execute(cmd, to_string = True)
@@ -17,7 +39,7 @@ class EnhancedListCommand(gdb.Command):
         lines = output.splitlines()
         first_line = lines[0]
         last_line = lines[-1]
-        line_number_pattern = re.compile(r"^(\d+):\s*")
+        #line_number_pattern = re.compile(r"^(\d+):\s*")
        
         #print(first_line)
         #print(last_line)
@@ -69,10 +91,14 @@ class EnhancedListCommand(gdb.Command):
             start_line, end_line = self.getscope(arg)
 
             # Get all breakpoints
+            """
             breakpoints = gdb.breakpoints() or []
             bp_lines = {int(bp.location.split(":")[-1]) for bp in breakpoints if ":" in bp.location}
             #print(bp_lines)
+            """
 
+            breakpoints = self.get_breakpoints(filename)
+            #print(breakpoints)
             prefix = ""
 
             # Display lines with annotations and color
@@ -80,9 +106,17 @@ class EnhancedListCommand(gdb.Command):
 #                prefix = "   "
 #                line_color = RESET  # Default color
 
-                if i in bp_lines:
+                #if i in bp_lines:
+                #break
+                if i in breakpoints:
+                    #break
                     line_color = RED
-                    prefix = "●"  # Mark breakpoint lines
+
+                    if breakpoints[i] == 'y':
+                        prefix = "●"  # Mark breakpoint lines
+                    else:
+                        prefix = "○"  # Mark breakpoint lines
+
                     prefix= f"{RED}{prefix}"
                     if i == next_line:
                         prefix += f"{GREEN} —▸{RED}"  # Mark next line to execute
