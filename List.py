@@ -9,7 +9,15 @@ class EnhancedListCommand(gdb.Command):
         super(EnhancedListCommand, self).__init__("List", gdb.COMMAND_FILES)
         gdb.execute("alias L = List")
 
-    #def getscope(self, arg, from_tty):
+
+    def max_digits_in_dict(self, numbers_dict):
+        # Get all the numbers from the dictionary
+        values = numbers_dict.values()
+
+        # Find the maximum number of digits
+        max_digits = max(len(str(abs(int(v)))) for v in values)
+        return max_digits
+
 
     def get_breakpoints(self, filename):
         """
@@ -20,30 +28,29 @@ class EnhancedListCommand(gdb.Command):
         lines = output.splitlines()
         
         breakpoints = {}
+        breakpoints_number={}
 
-        pattern = rf"^\s*\d+.*\s+keep\s+([yn])\s+.*{filename}:(\d+)\s*$"
+        pattern = rf"^\s*(\d+).*\s+keep\s+([yn])\s+.*{filename}:(\d+)\s*$"
         for line in lines:
             match = re.match(pattern, line)
             if match:
-                active = match.group(1)
-                line_number = match.group(2)
+                breakpoint_number=match.group(1)
+                active = match.group(2)
+                line_number = match.group(3)
                 breakpoints[int(line_number)] = active
-        #print(breakpoints)
-        return breakpoints
+                breakpoints_number[int(line_number)] = breakpoint_number
+        
+        return breakpoints, breakpoints_number
 
 
     def getscope(self, argument):
         cmd = "list " + argument
         output = gdb.execute(cmd, to_string = True)
-        #print(output)
         lines = output.splitlines()
         first_line = lines[0]
         last_line = lines[-1]
         #line_number_pattern = re.compile(r"^(\d+):\s*")
        
-        #print(first_line)
-        #print(last_line)
-        
         first_line_number = None
         last_line_number = None
 
@@ -55,10 +62,14 @@ class EnhancedListCommand(gdb.Command):
         if match:
             last_line_number = match.group(1)
         
-        #last_line_number = match.group(0) for match in line_number_pattern.finditer(last_line)
-
         return int(first_line_number), int(last_line_number) 
 
+    def repeated_space(self, length):
+        return ''.join(" " for _ in range(length))
+
+    def compose_breakpoint_prefix(self, i, maxlen):
+        return self.repeated_space(maxlen-len(str(i))) + str(i)
+       
     def invoke(self, arg, from_tty):
         try:
             # ANSI color codes
@@ -84,10 +95,6 @@ class EnhancedListCommand(gdb.Command):
             with open(filename, "r") as source_file:
                 lines = source_file.readlines()
 
-            # Determine the range of lines to display (default: 10 lines)
-            #start_line = max(next_line - 5, 1)
-            #end_line = min(next_line + 4, len(lines))
-
             start_line, end_line = self.getscope(arg)
 
             # Get all breakpoints
@@ -97,17 +104,14 @@ class EnhancedListCommand(gdb.Command):
             #print(bp_lines)
             """
 
-            breakpoints = self.get_breakpoints(filename)
-            #print(breakpoints)
-            prefix = ""
+            breakpoints, breakpoints_number = self.get_breakpoints(filename)
+            length_breakpoints = self.max_digits_in_dict(breakpoints_number)
+
+            leading_spaces = self.repeated_space(length_breakpoints)
 
             # Display lines with annotations and color
             for i in range(start_line, end_line + 1):
-#                prefix = "   "
-#                line_color = RESET  # Default color
 
-                #if i in bp_lines:
-                #break
                 if i in breakpoints:
                     #break
                     line_color = RED
@@ -123,11 +127,17 @@ class EnhancedListCommand(gdb.Command):
                         #line_color = GREEN
                     else:
                         prefix += "   "  # Mark next line to execute
+                    
+                    
+
+                    break_point_prefix = self.compose_breakpoint_prefix(breakpoints_number[i], length_breakpoints)
+                    prefix = f"{RESET}{break_point_prefix}{prefix}"
+
                 elif i == next_line:
                     prefix = f"{GREEN}  —▸"  # Mark next line to execute
                     #line_color = GREEN
                 else:
-                    prefix = f"{RESET}    "
+                    prefix = f"{RESET}{leading_spaces}    "
                     #line_color = RESET  # Default color
 
                 #print(f"{line_color}{prefix}{i:4}: {lines[i - 1].rstrip()}{RESET}")
