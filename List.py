@@ -14,8 +14,15 @@ class EnhancedListCommand(gdb.Command):
         # Get all the numbers from the dictionary
         values = numbers_dict.values()
 
+        if len(numbers_dict) == 0:
+            values = [0]
+
         # Find the maximum number of digits
+        #try:
         max_digits = max(len(str(abs(int(v)))) for v in values)
+        #except:
+        #    max_digits = 0
+        
         return max_digits
 
 
@@ -43,10 +50,14 @@ class EnhancedListCommand(gdb.Command):
         return breakpoints, breakpoints_number
 
     def getfilename(self):
-        cmd = "i source"
-        output = gdb.execute(cmd, to_string = True)
-        filename = output.splitlines()[0].rstrip().split(' ')[-1]
-        return filename
+        
+        try:
+            cmd = "i source"
+            output = gdb.execute(cmd, to_string = True)
+            filename = output.splitlines()[0].rstrip().split(' ')[-1]
+            return filename
+        except Exception as e:
+            print(f"Error: {e}")
 
 
     def getscope(self, argument):
@@ -112,7 +123,11 @@ class EnhancedListCommand(gdb.Command):
             # Read the source file
             with open(filename, "r") as source_file:
                 lines = source_file.readlines()
-
+        except Exception as e:
+            print("Error: No current source file.")
+            return
+        
+        try:
             start_line, end_line = self.getscope(arg)
 
             # Get all breakpoints
