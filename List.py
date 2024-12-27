@@ -1,13 +1,13 @@
 import gdb
 
-class EnhancedListCommand(gdb.Command):
+class EnhancedListCommand1(gdb.Command):
     """
     Replaces the original `list` command to show source code with
     highlighted breakpoints (red) and the next line to be executed (green).
     """
     def __init__(self):
-        super(EnhancedListCommand, self).__init__("List", gdb.COMMAND_FILES)
-        gdb.execute("alias L = List")
+        super(EnhancedListCommand1, self).__init__("List1", gdb.COMMAND_FILES)
+        gdb.execute("alias L1 = List")
 
 
     def max_digits_in_dict(self, numbers_dict):
@@ -77,31 +77,35 @@ class EnhancedListCommand(gdb.Command):
         return self.repeated_space(maxlen-len(str(i))) + str(i)
        
     def invoke(self, arg, from_tty):
-        try:
+        #try:
             # ANSI color codes
-            RED = "\033[31m"
-            GREEN = "\033[32m"
-            RESET = "\033[0m"
+        RED = "\033[31m"
+        GREEN = "\033[32m"
+        RESET = "\033[0m"
 
-            # Determine the current frame
-            
-            frame = gdb.selected_frame()
-            if frame:
+        # Determine the current frame
+        
+        frame = None #= gdb.selected_frame()
+        if frame:
 
-                #print("No frame selected.")
+            #print("No frame selected.")
+            #return
+
+            sal = frame.find_sal()
+            if sal and sal.symtab:
+                #print("No source information available.")
                 #return
 
-                sal = frame.find_sal()
-                if sal and sal.symtab:
-                    #print("No source information available.")
-                    #return
+                filename = sal.symtab.filename
+                next_line = sal.line
+            else:
+                filename = self.getfilename()
+                next_line = None
+        else:
+            filename = self.getfilename()
+            next_line = None
 
-                    filename = sal.symtab.filename
-                    next_line = sal.line
-                else:
-                    filename = self.getfilename()
-                    next_line = None
-
+        try:
             # Read the source file
             with open(filename, "r") as source_file:
                 lines = source_file.readlines()
@@ -156,4 +160,4 @@ class EnhancedListCommand(gdb.Command):
             print(f"Error: {e}")
 
 # Register the new list command
-EnhancedListCommand()
+EnhancedListCommand1()
