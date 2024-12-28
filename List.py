@@ -30,16 +30,20 @@ class EnhancedListCommand(gdb.Command):
         return max_length
 
     class BreakpointState:
-        def __init__(self, sequence_number, active = True, conditional = False):
+        def __init__(self, sequence_number, active = True, conditional = False, condition = ""):
             self.conditional = conditional
             self.active = active
             self.sequence_number = sequence_number
+            self.condition = condition
 
         def __eq__(self, other):
             if isinstance(other, EnhancedListCommand.BreakpointState):
                 return self.conditional == other.conditional and self. active==other.active
             return False
-
+        
+        def get_condition(self):
+            return self.condition 
+        
 
         def show(self):
             print(f"condifional: {self.conditional}\nactive: {self.active}\nbreak number: {self.sequence_number}\n")
@@ -59,7 +63,7 @@ class EnhancedListCommand(gdb.Command):
         breakpoints={}
 
         pattern = rf"^\s*(\d+).*\s+keep\s+([yn])\s+.*{filename}:(\d+)\s*$"
-        pattern_cond = r"^\s*stop only if"     # conditioanl breakpoint
+        pattern_cond = r"^\s*(stop only if.*)$"     # conditioanl breakpoint
         total_lines = len(lines)
         
         try:
@@ -74,6 +78,7 @@ class EnhancedListCommand(gdb.Command):
                     line_number = int(match.group(3))
 
                     cond = False
+                    condition = ""
                     
                     if i < total_lines-1:
                         
@@ -83,9 +88,10 @@ class EnhancedListCommand(gdb.Command):
                         if match:
 
                             cond = True
+                            condition = match.group(1)
 
 
-                    new_breakpoint = self.BreakpointState(breakpoint_number,active,cond)
+                    new_breakpoint = self.BreakpointState(breakpoint_number,active,cond, condition)
 
                     if line_number in breakpoints:
                         replacement =  (not cond and active ) or ( not cond and not active and breakpoints[line_number].conditional and not breakpoints[line_number].active ) or (cond and active and not breakpoints[line_number].active)
@@ -152,6 +158,7 @@ class EnhancedListCommand(gdb.Command):
         DARKRED= "\033[35m"
         GREEN = "\033[32m"
         RESET = "\033[0m"
+        YELLOW = "\033[33m"
 
         # Determine the current frame
        
@@ -198,6 +205,7 @@ class EnhancedListCommand(gdb.Command):
 
             # Display lines with annotations and color
             for i in range(start_line, end_line + 1):
+                suffix = ""
 
                 if i in breakpoints:
 
@@ -224,17 +232,19 @@ class EnhancedListCommand(gdb.Command):
                     
                     break_point_prefix = self.compose_breakpoint_prefix(breakpoints[i].sequence_number, length_breakpoints)
                     prefix = f"{RESET}{break_point_prefix}{prefix}"
+                    
+                    if breakpoints[i].conditional:
+                        suffix = f"\t{YELLOW}({breakpoints[i].get_condition()})"
 
                 elif next_line is not None and i == next_line:
                     prefix = f"{GREEN}{leading_spaces}  —▸"  # Mark next line to execute
                 else:
                     prefix = f"{RESET}{leading_spaces}    "
 
-                print(f"{prefix}{i:4}: {lines[i - 1].rstrip()}{RESET}")
+                print(f"{prefix}{i:4}: {lines[i - 1].rstrip()}{suffix}{RESET}")
 
         except Exception as e:
             print(f"Error: {e}")
-            print(traceback.format_exc())
 
 # Register the new list command
 EnhancedListCommand()
