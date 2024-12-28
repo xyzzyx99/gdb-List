@@ -1,5 +1,11 @@
 import gdb
 
+import traceback
+
+def print_line_number():
+    print(f"Current line number: {traceback.extract_stack()[-2].lineno}")
+
+
 class EnhancedListCommand(gdb.Command):
     """
     Replaces the original `list` command to show source code with
@@ -10,20 +16,33 @@ class EnhancedListCommand(gdb.Command):
         gdb.execute("alias L = List")
 
 
-    def max_digits_in_dict(self, numbers_dict):
+    def max_digits_in_dict(self, breakpoints):
         # Get all the numbers from the dictionary
-        values = numbers_dict.values()
 
-        if len(numbers_dict) == 0:
-            values = [0]
+        max_length = 0
 
-        # Find the maximum number of digits
-        #try:
-        max_digits = max(len(str(abs(int(v)))) for v in values)
-        #except:
-        #    max_digits = 0
+        for value in breakpoints.values():
+            new_length = len(str(value.sequence_number))
+            if new_length > max_length:
+                max_length = new_length
+
         
-        return max_digits
+        return max_length
+
+    class BreakpointState:
+        def __init__(self, sequence_number, active = True, conditional = False):
+            self.conditional = conditional
+            self.active = active
+            self.sequence_number = sequence_number
+
+        def __eq__(self, other):
+            if isinstance(other, EnhancedListCommand.BreakpointState):
+                return self.conditional == other.conditional and self. active==other.active
+            return False
+
+
+        def show(self):
+            print(f"condifional: {self.conditional}\nactive: {self.active}\nbreak number: {self.sequence_number}\n")
 
 
     def get_breakpoints(self, filename):
@@ -37,33 +56,51 @@ class EnhancedListCommand(gdb.Command):
         output = gdb.execute(cmd, to_string = True)
         lines = output.splitlines()
         
-        breakpoints = {}
-        breakpoints_number={}
+        breakpoints={}
 
         pattern = rf"^\s*(\d+).*\s+keep\s+([yn])\s+.*{filename}:(\d+)\s*$"
-        for line in lines:
-            match = re.match(pattern, line)
-            if match:
-                breakpoint_number=match.group(1)
-                active = match.group(2)
-                line_number = match.group(3)
-
-                if int(line_number) in breakpoints:
-                    if breakpoints[int(line_number)] == 'n':
-                        if active == 'y':
-                            breakpoints[int(line_number)] = active
-                else:
-                    breakpoints[int(line_number)] = active
-
-                if breakpoints[int(line_number)] == 'y':
-                    if active == 'y':
-                        breakpoints_number[int(line_number)] = breakpoint_number
-                else:
-                    breakpoints_number[int(line_number)] = breakpoint_number
-
-#                breakpoints_number[int(line_number)] = breakpoint_number
+        pattern_cond = r"^\s*stop only if"     # conditioanl breakpoint
+        total_lines = len(lines)
         
-        return breakpoints, breakpoints_number
+        try:
+            for i in range(total_lines):
+                line = lines[i]
+
+
+                match = re.match(pattern, line)
+                if match:
+                    breakpoint_number=int(match.group(1))
+                    active = match.group(2) == 'y'
+                    line_number = int(match.group(3))
+
+                    cond = False
+                    
+                    if i < total_lines-1:
+                        
+                        next_line = lines[i+1]
+                        
+                        match = re.match(pattern_cond, next_line)
+                        if match:
+
+                            cond = True
+
+
+                    new_breakpoint = self.BreakpointState(breakpoint_number,active,cond)
+
+                    if line_number in breakpoints:
+                        replacement =  (not cond and active ) or ( not cond and not active and breakpoints[line_number].conditional and not breakpoints[line_number].active ) or (cond and active and not breakpoints[line_number].active)
+
+                        if replacement or breakpoints[line_number] == new_breakpoint:
+                        
+                            breakpoints[line_number] = new_breakpoint
+
+                    else:
+                        breakpoints[line_number]=new_breakpoint
+        
+        except Exception as e:
+            print(f"Error: {e}")
+
+        return breakpoints
 
     def getfilename(self):
         
@@ -78,7 +115,6 @@ class EnhancedListCommand(gdb.Command):
             else:
                 raise RuntimeError("No current source file.")
         except Exception as e:
-            #print(f"Error: {e}")
             return ""
 
 
@@ -123,13 +159,10 @@ class EnhancedListCommand(gdb.Command):
             frame = gdb.selected_frame()
             if frame:
 
-                #print("No frame selected.")
                 #return
 
                 sal = frame.find_sal()
                 if sal and sal.symtab:
-                    #print("No source information available.")
-                    #return
 
                     filename = sal.symtab.filename
                     next_line = sal.line
@@ -137,7 +170,6 @@ class EnhancedListCommand(gdb.Command):
                 #    filename = self.getfilename()
                 #    next_line = None
         except:
-        #else:
             filename = self.getfilename()
             next_line = None
 
@@ -156,50 +188,53 @@ class EnhancedListCommand(gdb.Command):
             """
             breakpoints = gdb.breakpoints() or []
             bp_lines = {int(bp.location.split(":")[-1]) for bp in breakpoints if ":" in bp.location}
-            #print(bp_lines)
             """
 
-            breakpoints, breakpoints_number = self.get_breakpoints(filename)
-            length_breakpoints = self.max_digits_in_dict(breakpoints_number)
+            breakpoints = self.get_breakpoints(filename)
+            length_breakpoints = self.max_digits_in_dict(breakpoints)
 
             leading_spaces = self.repeated_space(length_breakpoints)
+
 
             # Display lines with annotations and color
             for i in range(start_line, end_line + 1):
 
                 if i in breakpoints:
-                   # line_color = RED
 
-                    if breakpoints[i] == 'y':
+                    if breakpoints[i].active:
                         line_color = RED
                         prefix = "●"  # Mark breakpoint lines
                     else:
                         line_color = DARKRED
                         prefix = "○"  # Mark breakpoint lines
 
-                    prefix= f"{RED}{prefix}{line_color}"
-                    if next_line is not None and i == next_line:
-                        prefix += f"{GREEN} —▸{line_color}"  # Mark next line to execute
-                        #line_color = GREEN
-                    else:
-                        prefix += "   "  # Mark next line to execute
+                    prefix= f"{RED}{prefix}"
                     
-                    break_point_prefix = self.compose_breakpoint_prefix(breakpoints_number[i], length_breakpoints)
+                    if breakpoints[i].conditional:
+                        prefix+='?'
+                    else:
+                        prefix+=' '
+                    
+                    prefix += f"{line_color}"
+
+                    if next_line is not None and i == next_line:
+                        prefix += f"{GREEN}—▸{line_color}"  # Mark next line to execute
+                    else:
+                        prefix += "  "  # Mark next line to execute
+                    
+                    break_point_prefix = self.compose_breakpoint_prefix(breakpoints[i].sequence_number, length_breakpoints)
                     prefix = f"{RESET}{break_point_prefix}{prefix}"
 
                 elif next_line is not None and i == next_line:
                     prefix = f"{GREEN}{leading_spaces}  —▸"  # Mark next line to execute
-                    #line_color = GREEN
                 else:
                     prefix = f"{RESET}{leading_spaces}    "
-                    #line_color = RESET  # Default color
 
-                #print(f"{line_color}{prefix}{i:4}: {lines[i - 1].rstrip()}{RESET}")
                 print(f"{prefix}{i:4}: {lines[i - 1].rstrip()}{RESET}")
 
         except Exception as e:
-            #print("Error: No current source file.")
             print(f"Error: {e}")
+            print(traceback.format_exc())
 
 # Register the new list command
 EnhancedListCommand()
