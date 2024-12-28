@@ -30,11 +30,13 @@ class EnhancedListCommand(gdb.Command):
         return max_length
 
     class BreakpointState:
-        def __init__(self, sequence_number, active = True, conditional = False, condition = ""):
+        def __init__(self, sequence_number, active = True, conditional = False, condition = "", hit_times = 0):
             self.conditional = conditional
             self.active = active
             self.sequence_number = sequence_number
             self.condition = condition
+            self.hit_times = hit_times
+
 
         def __eq__(self, other):
             if isinstance(other, EnhancedListCommand.BreakpointState):
@@ -44,9 +46,22 @@ class EnhancedListCommand(gdb.Command):
         def get_condition(self):
             return self.condition 
         
+        def get_hit_times(self):
+            return self.hit_times
 
         def show(self):
             print(f"condifional: {self.conditional}\nactive: {self.active}\nbreak number: {self.sequence_number}\n")
+
+    def get_hit_times(self, line):
+        
+        hit_times = 0
+        pattern = r"^\s*breakpoint already hit\s+(\d+)\s+time.*$"
+        match = re.match(pattern, line)
+        if match:
+            hit_times=int(match.group(1))
+
+        return hit_times
+        
 
 
     def get_breakpoints(self, filename):
@@ -79,6 +94,7 @@ class EnhancedListCommand(gdb.Command):
 
                     cond = False
                     condition = ""
+                    hit_times = 0
                     
                     if i < total_lines-1:
                         
@@ -90,8 +106,13 @@ class EnhancedListCommand(gdb.Command):
                             cond = True
                             condition = match.group(1)
 
+                            if i < total_lines-2:
+                                hit_times = self.get_hit_times(lines[i+2]) 
+                        else:
+                            hit_times = self.get_hit_times(lines[i+1]) 
 
-                    new_breakpoint = self.BreakpointState(breakpoint_number,active,cond, condition)
+
+                    new_breakpoint = self.BreakpointState(breakpoint_number,active,cond, condition, hit_times)
 
                     if line_number in breakpoints:
                         replacement =  (not cond and active ) or ( not cond and not active and breakpoints[line_number].conditional and not breakpoints[line_number].active ) or (cond and active and not breakpoints[line_number].active)
@@ -235,6 +256,11 @@ class EnhancedListCommand(gdb.Command):
                     
                     if breakpoints[i].conditional:
                         suffix = f"\t{YELLOW}({breakpoints[i].get_condition()})"
+
+                    if breakpoints[i].hit_times > 0:
+                        times = breakpoints[i].get_hit_times()
+                        message = "(" + "hit " + str(times) + " time" + ("" if times == 1 else "s") + ")"
+                        suffix += f"\t{YELLOW}{message}"
 
                 elif next_line is not None and i == next_line:
                     prefix = f"{GREEN}{leading_spaces}  —▸"  # Mark next line to execute
