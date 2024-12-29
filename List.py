@@ -187,15 +187,23 @@ class EnhancedListCommand(gdb.Command):
         try:
             cmd = "i source"
             output = gdb.execute(cmd, to_string = True)
-            line = output.splitlines()[0].rstrip()
+            lines = output.splitlines()
+            line = lines[0].rstrip()
 
             if line != "No current source file.":
-                filename = output.splitlines()[0].rstrip().split(' ')[-1]
-                return filename
+                filename = lines[0].rstrip().split(' ')[-1]
+                line = lines[2].rstrip()
+                pattern = r"^\s*Located in\s+(\S+.*)$"
+                match = re.match(pattern, line)
+                if match:
+                    path=match.group(1)
+               
+                return filename, path
             else:
                 raise RuntimeError("No current source file.")
+
         except Exception as e:
-            return ""
+            return "", ""
 
 
     def getscope(self, argument):
@@ -232,7 +240,7 @@ class EnhancedListCommand(gdb.Command):
 
     def invoke(self, arg, from_tty):
         #try:
-            # ANSI color codes
+        # ANSI color codes
         RED = "\033[31m"
         DARKRED= "\033[35m"
         GREEN = "\033[32m"
@@ -245,23 +253,19 @@ class EnhancedListCommand(gdb.Command):
             frame = gdb.selected_frame()
             if frame:
 
-                #return
-
                 sal = frame.find_sal()
                 if sal and sal.symtab:
 
                     filename = sal.symtab.filename
+                    path= sal.symtab.fullname()
                     next_line = sal.line
-                #else:
-                #    filename = self.getfilename()
-                #    next_line = None
         except:
-            filename = self.getfilename()
+            filename, path = self.getfilename()
             next_line = None
 
         try:
             # Read the source file
-            with open(filename, "r") as source_file:
+            with open(path, "r") as source_file:
                 lines = source_file.readlines()
         except Exception as e:
             print("Error: No current source file.")
