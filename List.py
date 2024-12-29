@@ -336,7 +336,7 @@ class EnhancedListCommand(gdb.Command):
                         maxlen = len(str(max(all_breakpoints_in_the_line, key=lambda x: len(str(x[0])))[0]))
                         other_leading_spaces = self.repeated_space(maxlen-len(str(row[0])))
 
-                        message = "("+ RED + other_leading_spaces + str(row[0])+ ( '●' if row[1] else '○' ) +( '?' if row[2] else '' )+YELLOW+ (("  "+ row[3]) if row[3]!= "" else "" ) +")\t"+ hit_times
+                        message = "("+ RED + other_leading_spaces + RESET + str(row[0])+ RED + ( '●' if row[1] else '○' ) +( '?' if row[2] else '' )+YELLOW+ (("  "+ row[3]) if row[3]!= "" else "" ) +")\t"+ hit_times
 
                         message = f"{spaces}\t{YELLOW}{message}{RESET}"
                         other_breakpoints_message +=( message + "\n" )
