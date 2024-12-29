@@ -334,9 +334,9 @@ class EnhancedListCommand(gdb.Command):
                             hit_times = ""
 
                         maxlen = len(str(max(all_breakpoints_in_the_line, key=lambda x: len(str(x[0])))[0]))
-                        leading_spaces = self.repeated_space(maxlen-len(str(row[0])))
+                        other_leading_spaces = self.repeated_space(maxlen-len(str(row[0])))
 
-                        message = "("+ RED + leading_spaces + str(row[0])+ ( '●' if row[1] else '○' ) +( '?' if row[2] else '' )+YELLOW+ (("  "+ row[3]) if row[3]!= "" else "" ) +")\t"+ hit_times
+                        message = "("+ RED + other_leading_spaces + str(row[0])+ ( '●' if row[1] else '○' ) +( '?' if row[2] else '' )+YELLOW+ (("  "+ row[3]) if row[3]!= "" else "" ) +")\t"+ hit_times
 
                         message = f"{spaces}\t{YELLOW}{message}{RESET}"
                         other_breakpoints_message +=( message + "\n" )
@@ -350,12 +350,6 @@ class EnhancedListCommand(gdb.Command):
                 print(f"{prefix}{i:4}: {lines[i - 1].rstrip()}{suffix}{RESET}")
                 if other_breakpoints_message != "":
                     print(other_breakpoints_message.rstrip())
-                """
-                cursor_position = len_no_ansi(f"{prefix}{i:4}: {lines[i - 1].rstrip()}")
-                spaces = " " * cursor_position
-
-                all_breakpoints_in_th_line = breakpoint_dict[i]
-                """
 
 
         except Exception as e:
