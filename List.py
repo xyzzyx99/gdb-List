@@ -89,7 +89,6 @@ class EnhancedListCommand(gdb.Command):
 
 
         for breakpoint in all_breakpoints:
-            #if breakpoint.line_number in active_dict:
             break_info = [breakpoint.sequence_number, breakpoint.active, breakpoint.conditional, breakpoint.condition, breakpoint.hit_times]
 
             if breakpoint.line_number not in breakpoint_dict or breakpoint_dict[breakpoint.line_number] is None:
@@ -107,8 +106,6 @@ class EnhancedListCommand(gdb.Command):
                 if row[0] != breakpoints[key].sequence_number:
                     left_value.append(row)
 
-            #left_value = [row for row in value if row[0] != breakpoints[key].sequence_number]
-            #left_value = value
             sorted_breakpoint = sorted(left_value, key=lambda x: (not x[1], x[0]))
             sorted_breakpoint_dict[key]=sorted_breakpoint
 
@@ -329,15 +326,17 @@ class EnhancedListCommand(gdb.Command):
 
                     all_breakpoints_in_the_line = breakpoint_dict[i]
 
-                    #other_breakpoints_message = ""
+
                     for row in all_breakpoints_in_the_line:
                         if row[-1] > 0:
                             hit_times ="(" + "hit " + str(row[-1]) + " time" + ("" if row[-1] == 1 else "s") + ")"
                         else:
                             hit_times = ""
 
+                        maxlen = len(str(max(all_breakpoints_in_the_line, key=lambda x: len(str(x[0])))[0]))
+                        leading_spaces = self.repeated_space(maxlen-len(str(row[0])))
 
-                        message = "("+ RED + str(row[0])+ ( '●' if row[1] else '○' ) +( '?' if row[2] else '' )+YELLOW+ (("  "+ row[3]) if row[3]!= "" else "" ) +")\t"+ hit_times
+                        message = "("+ RED + leading_spaces + str(row[0])+ ( '●' if row[1] else '○' ) +( '?' if row[2] else '' )+YELLOW+ (("  "+ row[3]) if row[3]!= "" else "" ) +")\t"+ hit_times
 
                         message = f"{spaces}\t{YELLOW}{message}{RESET}"
                         other_breakpoints_message +=( message + "\n" )
@@ -357,8 +356,6 @@ class EnhancedListCommand(gdb.Command):
 
                 all_breakpoints_in_th_line = breakpoint_dict[i]
                 """
-
-
 
 
         except Exception as e:
