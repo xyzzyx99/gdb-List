@@ -134,9 +134,19 @@ class EnhancedListCommand(gdb.Command):
             for i in range(total_lines):
                 line = lines[i]
 
+                matched = False
+
+                line_number = -1
+                breakpoint_number = -1
+                active = None
+                cond = None
+                condition = ""
+                hit_times = 0
+
 
                 match = re.match(pattern, line)
                 if match:
+                    matched = True
                     breakpoint_number=int(match.group(1))
                     active = match.group(2) == 'y'
                     line_number = int(match.group(3))
@@ -163,6 +173,44 @@ class EnhancedListCommand(gdb.Command):
 
                     new_breakpoint = self.BreakpointState(line_number,breakpoint_number, active,cond, condition, hit_times)
                     all_breakpoints.append(new_breakpoint)
+                else:
+                    pattern = rf"^\s*(\d+).*\s+keep\s+([yn])\s+.*{filename}:(\d+)\s*$"
+                    pattern_cond = r"^\s*(stop only if.*)$"     # conditioanl breakpoint
+                    pattern_sub_mult = rf"^\s*(\d+\.\d+)\s+([yn])\s+.*\s+at\s+{filename}:(\d+)\s*$"
+                    pattern_mult = r"\s*(\d+)\s+breakpoint\s+keep\s+(\S)\s+<MULTIPLE>.*$"
+
+                    match = re.match(pattern_mult, line)
+                    if match:
+                        matched = True
+                        breakpoint_number=int(match.group(1))
+
+                        active = match.group(2) == 'y'
+                        cond = False
+                        condition = ""
+
+                        if i < total_lines -2:
+                            line = lines[i+1]
+                            match = re.match(pattern_cond, line)
+
+                            if match:
+                                cond = True
+                                condition = match.group(1)
+                                j = i + 2
+                            else:
+                                j = i+1
+
+                        if j < total_lines -1:
+                            line = lines[j]
+                            match = re.match(pattern_sub_mult, line)
+
+                            if match:
+                                line_number = int(match.group(3))
+
+
+                if matched:
+
+                    new_breakpoint = self.BreakpointState(line_number,breakpoint_number, active,cond, condition, hit_times)
+                    all_breakpoints.append(new_breakpoint)
 
                     if line_number in breakpoints:
                         replacement =  (not cond and active ) or ( not cond and not active and breakpoints[line_number].conditional and not breakpoints[line_number].active ) or (cond and active and not breakpoints[line_number].active)
@@ -174,12 +222,15 @@ class EnhancedListCommand(gdb.Command):
                     else:
                         breakpoints[line_number]=new_breakpoint
 
+
+
+
         except Exception as e:
             print(f"Error: {e}")
 
         sorted_breakpoint_dict = self.separate(all_breakpoints, breakpoints)
 
-        return breakpoints, sorted_breakpoint_dict
+        return breakpoints, sorted_breakpoint_dict # breakpoints is a list of classes. sorted_breakpoint_dict is a dict of list
 
 
     def getfilename(self):
@@ -197,7 +248,7 @@ class EnhancedListCommand(gdb.Command):
                 match = re.match(pattern, line)
                 if match:
                     path=match.group(1)
-               
+
                 return filename, path
             else:
                 raise RuntimeError("No current source file.")
@@ -281,6 +332,8 @@ class EnhancedListCommand(gdb.Command):
             """
 
             breakpoints, breakpoint_dict = self.get_breakpoints(filename)
+
+
             length_breakpoints = self.max_digits_in_dict(breakpoints)
 
             leading_spaces = self.repeated_space(length_breakpoints)
