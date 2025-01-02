@@ -12,8 +12,82 @@ class EnhancedListCommand(gdb.Command):
     highlighted breakpoints (red) and the next line to be executed (green).
     """
     def __init__(self):
+        #self.x86_jump_conditions = {}
+        self.ZF = 0
+        self.x86_jump_conditions = {
+    # Unsigned arithmetic
+    "JC": "self.CF == 1",
+    "JNC": "self.CF == 0",
+    "JA": "(self.CF == 0) and (self.ZF == 0)",
+    "JAE": "self.CF == 0",
+    "JB": "self.CF == 1",
+    "JBE": "(self.CF == 1) or (self.ZF == 1)",
+    "JE": "self.ZF == 1",
+    "JZ": "self.ZF == 1",
+    "JNE": "self.ZF == 0",
+    "JNZ": "self.ZF == 0",
+    "JS": "self.SF == 1",
+    "JNS": "self.SF == 0",
+    "JO": "self.OF == 1",
+    "JNO": "self.OF == 0",
+    "JL": "self.SF != self.OF",
+    "JNGE": "self.SF != self.OF",
+    "JGE": "self.SF == self.OF",
+    "JNL": "self.SF == self.OF",
+    "JLE": "(self.ZF == 1) or (self.SF != self.OF)",
+    "JNG": "(self.ZF == 1) or (self.SF != self.OF)",
+    "JG": "(self.ZF == 0) and (self.SF == self.OF)",
+    "JNLE": "(self.ZF == 0) and (self.SF == self.OF)",
+    "JP": "self.PF == 1",
+    "JPE": "self.PF == 1",
+    "JNP": "self.PF == 0",
+    "JPO": "self.PF == 0",
+    "LOOP": "self.ECX != 0",
+    "LOOPZ": "(self.ECX != 0) and (self.ZF == 1)",
+    "LOOPE": "(self.ECX != 0) and (self.ZF == 1)",
+    "LOOPNZ": "(self.ECX != 0) and (self.ZF == 0)",
+    "LOOPNE": "(self.ECX != 0) and (self.ZF == 0)"
+}
+
         super(EnhancedListCommand, self).__init__("List", gdb.COMMAND_FILES)
         gdb.execute("alias L = List")
+
+
+    def get_assembly_opcode(self, line):
+        #pattern = r"^\s*(\S+\s*:)?\s*(\S+)(\s+\S+)?\s*$"
+        #pattern= r"^(.*:)?\s*(\S+)\s+\S+.*$"
+        pattern= r"^(.*:)?\s*(\S+)(\s+\S+)?.*$"
+        match = re.match(pattern, line)
+        if match:
+            #opcode=match.groups()[-1]
+            opcode=match.group(2)
+            return opcode.upper()
+        else:
+            return ""
+
+
+
+
+    def get_flags(self, instruction):
+        cmd = "info registers eflags"
+        output = gdb.execute(cmd, to_string = True).split('[')
+        result = output[1].replace("[", "").replace("]", "").strip().split(" ")
+
+        all_flags = ['CF', 'ZF', 'SF', 'OF', 'PF']
+
+        for flag in all_flags:
+            if flag in result:
+                exec(f"self.{flag}=1")
+            else:
+                exec(f"self.{flag}=0")
+        cmd = "p $ecx"
+        output = gdb.execute(cmd, to_string = True).split("=")[1].strip()
+        exec(f"self.ECX={output}")
+        instruction=instruction.strip().upper()
+        result = eval(self.x86_jump_conditions[instruction])
+        return result
+
+
 
 
     def max_digits_in_dict(self, breakpoints):
@@ -171,14 +245,11 @@ class EnhancedListCommand(gdb.Command):
                             hit_times = self.get_hit_times(lines[i+1])
 
 
-                    new_breakpoint = self.BreakpointState(line_number,breakpoint_number, active,cond, condition, hit_times)
-                    all_breakpoints.append(new_breakpoint)
                 else:
                     pattern = rf"^\s*(\d+).*\s+keep\s+([yn])\s+.*{filename}:(\d+)\s*$"
                     pattern_cond = r"^\s*(stop only if.*)$"     # conditioanl breakpoint
                     pattern_sub_mult = rf"^\s*(\d+\.\d+)\s+([yn])\s+.*\s+at\s+{filename}:(\d+)\s*$"
                     pattern_mult = r"\s*(\d+)\s+breakpoint\s+keep\s+(\S)\s+<MULTIPLE>.*$"
-
                     match = re.match(pattern_mult, line)
                     if match:
                         matched = True
@@ -243,18 +314,19 @@ class EnhancedListCommand(gdb.Command):
 
             if line != "No current source file.":
                 filename = lines[0].rstrip().split(' ')[-1]
+                file_type = filename.split('.')[-1]
                 line = lines[2].rstrip()
                 pattern = r"^\s*Located in\s+(\S+.*)$"
                 match = re.match(pattern, line)
                 if match:
                     path=match.group(1)
 
-                return filename, path
+                return filename, path, file_type
             else:
                 raise RuntimeError("No current source file.")
 
         except Exception as e:
-            return "", ""
+            return "", "", ""
 
 
     def getscope(self, argument):
@@ -288,6 +360,17 @@ class EnhancedListCommand(gdb.Command):
         return len(re.sub(
         r'[\u001B\u009B][\[\]()#;?]*((([a-zA-Z\d]*(;[-a-zA-Z\d\/#&.:=?%@~_]*)*)?\u0007)|((\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-ntqry=><~]))', '', string))
 
+    def get_asm_jump_state(self, file_type,line):
+
+        if file_type == "asm":
+
+            opcode = self.get_assembly_opcode(line)
+            if opcode in self.x86_jump_conditions:
+                return(self.get_flags(opcode))
+
+        return None
+
+
 
     def invoke(self, arg, from_tty):
         #try:
@@ -310,8 +393,9 @@ class EnhancedListCommand(gdb.Command):
                     filename = sal.symtab.filename
                     path= sal.symtab.fullname()
                     next_line = sal.line
+                    file_type = filename.split('.')[-1]
         except:
-            filename, path = self.getfilename()
+            filename, path, file_type = self.getfilename()
             next_line = None
 
         try:
@@ -343,8 +427,11 @@ class EnhancedListCommand(gdb.Command):
             for i in range(start_line, end_line + 1):
                 suffix = ""
                 other_breakpoints_message = ""
+                line = lines[i-1]
+                jump_string = ""
 
                 if i in breakpoints:
+                    message = ""
 
                     if breakpoints[i].active:
                         line_color = RED
@@ -394,7 +481,6 @@ class EnhancedListCommand(gdb.Command):
                         other_leading_spaces = self.repeated_space(maxlen-len(str(row[0])))
 
                         message = "("+ RED + other_leading_spaces + RESET + str(row[0])+ RED + ( '●' if row[1] else '○' ) +( '?' if row[2] else '' )+YELLOW+ (("  "+ row[3]) if row[3]!= "" else "" ) +")\t"+ hit_times
-
                         message = f"{spaces}\t{YELLOW}{message}{RESET}"
                         other_breakpoints_message +=( message + "\n" )
 
@@ -404,7 +490,18 @@ class EnhancedListCommand(gdb.Command):
                 else:
                     prefix = f"{RESET}{leading_spaces}    "
 
-                print(f"{prefix}{i:4}: {lines[i - 1].rstrip()}{suffix}{RESET}")
+
+                if next_line is not None and i == next_line:
+                    jump_state = self.get_asm_jump_state(file_type,line)
+                    if jump_state is not None:
+                        if jump_state:
+                            jump_string= f"\t{YELLOW}(will jump)"
+                        else:
+                            jump_string = f"\t{YELLOW}(will not jump)"
+
+
+
+                print(f"{prefix}{i:4}: {lines[i - 1].rstrip()}{suffix}{jump_string}{RESET}")
                 if other_breakpoints_message != "":
                     print(other_breakpoints_message.rstrip())
 
