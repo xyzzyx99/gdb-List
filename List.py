@@ -471,7 +471,7 @@ class EnhancedListCommand(gdb.Command):
             start_line, end_line = self.getscope(arg, filename)
 
             if start_line is None:
-                os._exit(1)
+                return
             # Get all breakpoints
             """
             breakpoints = gdb.breakpoints() or []
