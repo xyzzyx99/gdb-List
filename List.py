@@ -410,7 +410,6 @@ class EnhancedListCommand(gdb.Command):
         except Exception as e:
             print(f"Error: {e}")
             return None, None
-            os._exit(1)
 
     def repeated_space(self, length):
         return ''.join(" " for _ in range(length))
@@ -566,8 +565,6 @@ class EnhancedListCommand(gdb.Command):
                     print(other_breakpoints_message.rstrip())
 
 
-        except SystemExit:
-            pass
         except Exception as e:
             print(f"Error1: {e}")
 
