@@ -566,7 +566,7 @@ class EnhancedListCommand(gdb.Command):
 
 
         except Exception as e:
-            print(f"Error1: {e}")
+            print(f"Error: {e}")
 
 
 # Register the new list command
